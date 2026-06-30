@@ -1,0 +1,13 @@
+region,cleaned_date,cleaned_time,issue_type,status,team_deployed,remarks
+Ambala,2026-06-30,9:15 AM,Overflowing Bins,Completed,Team A,"Garbage pile cleared, area sanitized"
+Gurugram,2026-06-29,2:45 PM,Blocked Drain,In Progress,Team B,Pending equipment arrival
+Faridabad,2026-06-29,10:30 AM,Street Sweeping,Completed,Team C,Routine cleaning completed
+Hisar,2026-06-28,11:00 AM,Public Toilet Cleaning,Scheduled,Team A,Scheduled for next shift
+Rohtak,2026-06-28,4:20 PM,Overflowing Bins,Completed,Team D,Bins emptied and washed
+Panipat,2026-06-27,8:45 AM,Dead Animal Removal,Completed,Team B,Area sanitized properly
+Karnal,2026-06-27,1:15 PM,Blocked Drain,In Progress,Team C,Clearing heavy blockage
+Panchkula,2026-06-26,10:00 AM,Street Sweeping,Completed,Team A,Main roads swept
+Sonipat,2026-06-26,3:30 PM,Public Toilet Cleaning,Completed,Team D,Deep cleaning done
+Yamunanagar,2026-06-25,9:45 AM,Overflowing Bins,Scheduled,Team B,Awaiting collection vehicle
+Sirsa,2026-06-24,11:30 AM,Blocked Drain,Completed,Team C,Drain cleared completely
+Rewari,2026-06-24,5:00 PM,Street Sweeping,In Progress,Team A,Sweeping ongoing in market area
