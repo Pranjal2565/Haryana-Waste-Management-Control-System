@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WMCS | Waste Management Control System</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#22c55e', // Green
+                        secondary: '#3b82f6', // Blue
+                        danger: '#ef4444', // Red
+                        dark: '#111827',
+                        darkcard: '#1f2937'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Leaflet.js for Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        #map { z-index: 10; }
+        .smooth-transition { transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 dark:bg-dark dark:text-gray-100 smooth-transition font-sans">
+
+    <!-- Navbar -->
+    <nav class="bg-white dark:bg-darkcard shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-leaf text-primary text-2xl"></i>
+                    <span class="font-bold text-xl tracking-tight">WMCS</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 smooth-transition">
+                        <i class="fa-solid fa-moon text-gray-600 dark:text-gray-300" id="theme-icon"></i>
+                    </button>
+                    <button onclick="openModal()" class="bg-primary hover:bg-green-600 text-white px-4 py-2 rounded-full font-medium shadow-lg hover:shadow-xl smooth-transition flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Report Garbage</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Statistics Dashboard -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 text-center">
+            <div class="bg-white dark:bg-darkcard p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
+                <h3 class="text-sm text-gray-500 dark:text-gray-400">Total Reports</h3>
+                <p class="text-3xl font-bold text-gray-800 dark:text-white" id="stat-total">0</p>
+            </div>
+            <div class="bg-white dark:bg-darkcard p-4 rounded-xl shadow-sm border border-danger">
+                <h3 class="text-sm text-danger font-bold">High Priority (>=3)</h3>
+                <p class="text-3xl font-bold text-danger" id="stat-high">0</p>
+            </div>
+            <div class="bg-white dark:bg-darkcard p-4 rounded-xl shadow-sm border border-secondary">
+                <h3 class="text-sm text-secondary font-bold">Cleaning</h3>
+                <p class="text-3xl font-bold text-secondary" id="stat-cleaning">0</p>
+            </div>
+            <div class="bg-white dark:bg-darkcard p-4 rounded-xl shadow-sm border border-primary">
+                <h3 class="text-sm text-primary font-bold">Cleaned</h3>
+                <p class="text-3xl font-bold text-primary" id="stat-cleaned">0</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Map Section -->
+            <div class="lg:col-span-2 flex flex-col gap-4">
+                <div class="bg-white dark:bg-darkcard p-4 rounded-xl shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold"><i class="fa-solid fa-map-location-dot text-secondary mr-2"></i> Live Garbage Map</h2>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Click on the map to drop a pin and report</span>
+                    </div>
+                    <div id="map" class="h-[500px] w-full rounded-lg shadow-inner z-0 border border-gray-200 dark:border-gray-700"></div>
+                </div>
+            </div>
+
+            <!-- Reports List Section -->
+            <div class="flex flex-col gap-4 h-[580px]">
+                <div class="bg-white dark:bg-darkcard p-4 rounded-xl shadow-sm flex flex-col h-full">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold"><i class="fa-solid fa-list-ul text-primary mr-2"></i> Active Reports</h2>
+                    </div>
+                    
+                    <!-- Filters -->
+                    <div class="mb-4">
+                        <select id="filter-status" onchange="renderReports()" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-primary focus:border-primary block p-2.5">
+                            <option value="All">All Statuses</option>
+                            <option value="Pending">Pending</option>
+                            <option value="High Priority">High Priority</option>
+                            <option value="Cleaning">Cleaning</option>
+                            <option value="Cleaned">Cleaned</option>
+                        </select>
+                    </div>
+
+                    <!-- Scrollable List -->
+                    <div id="reports-container" class="overflow-y-auto flex-1 pr-2 space-y-3">
+                        <!-- Reports will be injected here by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Report Modal -->
+    <div id="report-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[100] hidden flex items-center justify-center backdrop-blur-sm smooth-transition">
+        <div class="bg-white dark:bg-darkcard w-full max-w-md rounded-2xl shadow-2xl p-6 transform scale-95 transition-transform">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Report Garbage</h3>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-800 dark:hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <form id="report-form" onsubmit="submitReport(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Location Coordinates</label>
+                    <input type="text" id="report-coords" class="w-full bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-sm text-gray-500 cursor-not-allowed" readonly>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Address / Landmark</label>
+                    <input type="text" id="report-address" required class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded p-2 focus:ring-2 focus:ring-primary outline-none" placeholder="e.g., Near Sector 14 Park">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Description & Type</label>
+                    <textarea id="report-desc" required rows="3" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded p-2 focus:ring-2 focus:ring-primary outline-none" placeholder="Describe the garbage (plastic, food waste, etc.)"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-primary hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg smooth-transition">
+                    Submit Report
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin/Staff Action Modal -->
+    <div id="action-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[100] hidden flex items-center justify-center backdrop-blur-sm smooth-transition">
+        <div class="bg-white dark:bg-darkcard w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center">
+            <h3 class="text-lg font-bold mb-4">Update Task Status</h3>
+            <p class="text-sm text-gray-500 mb-6">Staff use only: Update the status of this location.</p>
+            <input type="hidden" id="action-id">
+            <div class="flex flex-col gap-3">
+                <button onclick="updateStatus('Cleaning')" class="w-full bg-secondary hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg smooth-transition">Mark as Cleaning</button>
+                <button onclick="updateStatus('Cleaned')" class="w-full bg-primary hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg smooth-transition">Mark as Cleaned</button>
+                <button onclick="closeActionModal()" class="w-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg smooth-transition mt-2">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let map;
+        let markersLayer;
+        let tempMarker = null;
+        
+        // Initial Dummy Data
+        const defaultReports = [
+            { id: 1, lat: 30.6953, lng: 76.8615, address: "Sector 14 Market", desc: "Mixed waste piling up near the bins.", flags: 1, status: "Pending", date: new Date().toISOString() },
+            { id: 2, lat: 30.7020, lng: 76.8720, address: "Sector 15 Park", desc: "Construction debris dumped overnight.", flags: 3, status: "High Priority", date: new Date().toISOString() },
+        ];
+
+        // Load from Local Storage or use defaults
+        let reports = JSON.parse(localStorage.getItem('wmcs_reports')) || defaultReports;
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            initMap();
+            renderReports();
+        });
+
+        // --- Theme Management ---
+        function initTheme() {
+            const toggleBtn = document.getElementById('theme-toggle');
+            const icon = document.getElementById('theme-icon');
+            
+            // Check local storage or system preference
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                icon.classList.replace('fa-moon', 'fa-sun');
+            } else {
+                document.documentElement.classList.remove('dark');
+                icon.classList.replace('fa-sun', 'fa-moon');
+            }
+
+            toggleBtn.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                if (document.documentElement.classList.contains('dark')) {
+                    localStorage.theme = 'dark';
+                    icon.classList.replace('fa-moon', 'fa-sun');
+                } else {
+                    localStorage.theme = 'light';
+                    icon.classList.replace('fa-sun', 'fa-moon');
+                }
+            });
+        }
+
+        // --- Map Setup ---
+        function initMap() {
+            // Centered loosely around Panchkula/Chandigarh area based on dummy data
+            map = L.map('map').setView([30.6953, 76.8615], 13);
+            
+            // OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            markersLayer = L.layerGroup().addTo(map);
+
+            // Map click handler for dropping a pin to report
+            map.on('click', function(e) {
+                if(tempMarker) { map.removeLayer(tempMarker); }
+                tempMarker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
+                openModal(e.latlng.lat, e.latlng.lng);
+            });
+        }
+
+        // --- UI & Rendering ---
+        function getStatusColor(status) {
+            switch(status) {
+                case 'Pending': return { border: 'border-yellow-400', bg: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' };
+                case 'High Priority': return { border: 'border-danger', bg: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' };
+                case 'Cleaning': return { border: 'border-secondary', bg: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' };
+                case 'Cleaned': return { border: 'border-primary', bg: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' };
+                default: return { border: 'border-gray-300', bg: 'bg-gray-100 text-gray-800' };
+            }
+        }
+
+        function getMarkerColor(status) {
+            switch(status) {
+                case 'Pending': return 'orange';
+                case 'High Priority': return 'red';
+                case 'Cleaning': return 'blue';
+                case 'Cleaned': return 'green';
+                default: return 'gray';
+            }
+        }
+
+        function renderReports() {
+            const container = document.getElementById('reports-container');
+            container.innerHTML = '';
+            markersLayer.clearLayers();
+
+            const filter = document.getElementById('filter-status').value;
+            
+            // Sort: High Priority first, then by flags descending
+            let filteredReports = reports.filter(r => filter === 'All' || r.status === filter);
+            filteredReports.sort((a, b) => {
+                if (a.status === 'High Priority' && b.status !== 'High Priority') return -1;
+                if (b.status === 'High Priority' && a.status !== 'High Priority') return 1;
+                return b.flags - a.flags;
+            });
+
+            // Update Dashboard Stats
+            document.getElementById('stat-total').innerText = reports.length;
+            document.getElementById('stat-high').innerText = reports.filter(r => r.status === 'High Priority').length;
+            document.getElementById('stat-cleaning').innerText = reports.filter(r => r.status === 'Cleaning').length;
+            document.getElementById('stat-cleaned').innerText = reports.filter(r => r.status === 'Cleaned').length;
+
+            if (filteredReports.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-10">No reports found.</p>`;
+                return;
+            }
+
+            filteredReports.forEach(report => {
+                const colors = getStatusColor(report.status);
+                
+                // Add Map Marker
+                const markerIcon = new L.Icon({
+                    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${getMarkerColor(report.status)}.png`,
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                });
+
+                const popupContent = `
+                    <b>${report.address}</b><br>
+                    Status: ${report.status}<br>
+                    Flags: ${report.flags}<br>
+                    <button onclick="openActionModal(${report.id})" class="mt-2 text-xs bg-gray-800 text-white px-2 py-1 rounded">Update Status</button>
+                `;
+                L.marker([report.lat, report.lng], {icon: markerIcon}).bindPopup(popupContent).addTo(markersLayer);
+
+                // Build List Card
+                const card = document.createElement('div');
+                card.className = `p-4 bg-gray-50 dark:bg-gray-800 border-l-4 ${colors.border} rounded-r-xl shadow-sm relative`;
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="font-bold text-gray-800 dark:text-white truncate pr-2 w-3/4">${report.address}</h3>
+                        <span class="text-xs px-2 py-1 rounded-full font-semibold ${colors.bg} whitespace-nowrap">
+                            ${report.status === 'High Priority' ? '<i class="fa-solid fa-triangle-exclamation animate-pulse"></i> ' : ''}${report.status}
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-3 line-clamp-2">${report.desc}</p>
+                    
+                    <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg font-bold text-gray-800 dark:text-white">${report.flags}</span>
+                            <span class="text-xs text-gray-500 uppercase">Flags</span>
+                        </div>
+                        <div class="flex gap-2">
+                            ${(report.status === 'Pending' || report.status === 'High Priority') ? `
+                                <button onclick="upvote(${report.id})" class="text-sm bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white px-3 py-1 rounded-lg smooth-transition">
+                                    <i class="fa-solid fa-arrow-up"></i> Upvote
+                                </button>
+                            ` : ''}
+                            <button onclick="map.setView([${report.lat}, ${report.lng}], 16)" class="text-sm bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 text-blue-700 dark:text-blue-200 px-3 py-1 rounded-lg smooth-transition">
+                                <i class="fa-solid fa-location-crosshairs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Save to local storage automatically on render
+            localStorage.setItem('wmcs_reports', JSON.stringify(reports));
+        }
+
+        // --- Logic & Actions ---
+
+        // Upvote a report (Priority Engine)
+        function upvote(id) {
+            const report = reports.find(r => r.id === id);
+            if (report) {
+                report.flags += 1;
+                
+                // PRIORITY SYSTEM: Upgrade to High Priority if flags >= 3
+                if (report.flags >= 3 && report.status === 'Pending') {
+                    report.status = 'High Priority';
+                    alert(`Location: ${report.address} has reached 3 flags and is now marked as HIGH PRIORITY!`);
+                }
+                
+                renderReports();
+            }
+        }
+
+        // Submit New Report
+        function submitReport(e) {
+            e.preventDefault();
+            const coordsStr = document.getElementById('report-coords').value;
+            if(!coordsStr) { alert("Please click on the map to set a location."); return; }
+            
+            const [lat, lng] = coordsStr.split(',').map(Number);
+            const address = document.getElementById('report-address').value;
+            const desc = document.getElementById('report-desc').value;
+
+            const newReport = {
+                id: Date.now(),
+                lat: lat,
+                lng: lng,
+                address: address,
+                desc: desc,
+                flags: 1, // Starts with 1 flag
+                status: 'Pending',
+                date: new Date().toISOString()
+            };
+
+            reports.push(newReport);
+            closeModal();
+            renderReports();
+            map.setView([lat, lng], 15);
+        }
+
+        // Admin/Staff update status
+        function updateStatus(newStatus) {
+            const id = parseInt(document.getElementById('action-id').value);
+            const report = reports.find(r => r.id === id);
+            if (report) {
+                report.status = newStatus;
+                closeActionModal();
+                renderReports();
+            }
+        }
+
+        // --- Modal Handling ---
+        function openModal(lat = null, lng = null) {
+            document.getElementById('report-modal').classList.remove('hidden');
+            if(lat && lng) {
+                document.getElementById('report-coords').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            } else {
+                document.getElementById('report-coords').value = "";
+                document.getElementById('report-coords').placeholder = "Click on the map first to select location";
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('report-modal').classList.add('hidden');
+            document.getElementById('report-form').reset();
+            if(tempMarker) {
+                map.removeLayer(tempMarker);
+                tempMarker = null;
+            }
+        }
+
+        function openActionModal(id) {
+            document.getElementById('action-id').value = id;
+            document.getElementById('action-modal').classList.remove('hidden');
+            map.closePopup();
+        }
+
+        function closeActionModal() {
+            document.getElementById('action-modal').classList.add('hidden');
+        }
+
+    </script>
+</body>
+</html>
